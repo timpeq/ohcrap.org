@@ -4,8 +4,8 @@ export function parchoResponse():Response{
   const currentTime = new Date();
   const currentYear = currentTime.getFullYear();
 
-  const title = `OhCrap.org ${startYear} - ${currentYear}`.split("").reverse().join();
-  const headline = `Celebrating ${currentYear - startYear} years of crap!`.split("").reverse().join();
+  const title = `OhCrap.org ${startYear} - ${currentYear}`.split("").reverse().join("");
+  const headline = `Celebrating ${currentYear - startYear} years of crap!`.split("").reverse().join("");
 
 
   return new Response(`
