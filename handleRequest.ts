@@ -6,9 +6,8 @@ import { staticResponse } from "./response/static.ts";
 export async function handleRequest(request: Request, connInfo:ConnInfo): Promise<Response> {
   const { pathname } = new URL(request.url);
 
-  log.info(`[${connInfo.remoteAddr}] ${request.method} - ${pathname}`);
-
-  log.info({...request.headers.values()});
+  if (connInfo.remoteAddr.transport !== 'tcp') throw Error("The server is TCP only!")
+  log.info(`[${connInfo.remoteAddr.hostname}] - ${request.method} ${pathname}`)
 
   if (pathname === "/") {
     return defaultResponse();
@@ -20,6 +19,6 @@ export async function handleRequest(request: Request, connInfo:ConnInfo): Promis
     return await staticResponse(request);
   }
 
-  log.error(`Request not found`);
+  log.error(`[${connInfo.remoteAddr.hostname}] - ${request.method} ${pathname} NOT FOUND`);
   return errorResponse(404, "Not Found")
 }
