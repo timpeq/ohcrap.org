@@ -1,20 +1,9 @@
 // Copyright 2018-2021 the Deno authors. All rights reserved. MIT license.
-// This module was extracted from https://deno.land/std@0.110.0/http/file_server.ts
+// Module based on 
 
-import { extname, Status, STATUS_TEXT, readRange } from "./deps.ts";
+// Temporary hack of https://deno.land/std/http/file_server.ts for use until std/http serveFile works on Deno Deploy
 
-// Generates a SHA-1 hash for the provided string
-async function createEtagHash(message: string) {
-  const byteToHex = (b: number) => b.toString(16).padStart(2, "00");
-  const hashType = "SHA-1"; // Faster, and this isn't a security sensitive cryptographic use case
-
-  // see: https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/digest
-  const msgUint8 = new TextEncoder().encode(message);
-  const hashBuffer = await crypto.subtle.digest(hashType, msgUint8);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map(byteToHex).join("");
-  return hashHex;
-}
+import { extname, Status, STATUS_TEXT } from "./deps.ts";
 
 const MEDIA_TYPES: Record<string, string> = {
   ".md": "text/markdown",
@@ -151,24 +140,14 @@ function contentType(path: string): string | undefined {
 
 function setBaseHeaders(): Headers {
   const headers = new Headers();
-  headers.set("server", "deno");
-
+  // headers.set("server", "deno");
   // Set "accept-ranges" so that the client knows it can make range requests on future requests
-  headers.set("accept-ranges", "bytes");
+  // headers.set("accept-ranges", "bytes");
   headers.set("date", new Date().toUTCString());
-
   return headers;
 }
 
-export async function serveFile(
-  req: Request,
-  filePath: string,
-): Promise<Response> {
-  const [file, fileInfo] = await Promise.all([
-    Deno.open(filePath),
-    Deno.stat(filePath),
-  ]);
-
+export async function serveFile(_request:Request, filePath: string): Promise<Response> {
   const headers = setBaseHeaders();
 
   // Set mime-type using the file extension in filePath
@@ -177,85 +156,13 @@ export async function serveFile(
     headers.set("content-type", contentTypeValue);
   }
 
-  // Set date header if access timestamp is available
-  if (fileInfo.atime instanceof Date) {
-    const date = new Date(fileInfo.atime);
-    headers.set("date", date.toUTCString());
-  }
-
-  // Set last modified header if access timestamp is available
-  if (fileInfo.mtime instanceof Date) {
-    const lastModified = new Date(fileInfo.mtime);
-    headers.set("last-modified", lastModified.toUTCString());
-
-    // Create a simple etag that is an md5 of the last modified date and filesize concatenated
-    const simpleEtag = await createEtagHash(
-      `${lastModified.toJSON()}${fileInfo.size}`,
-    );
-    headers.set("etag", simpleEtag);
-
-    // If a `if-none-match` header is present and the value matches the tag or
-    // if a `if-modified-since` header is present and the value is bigger than
-    // the access timestamp value, then return 304
-    const ifNoneMatch = req.headers.get("if-none-match");
-    const ifModifiedSince = req.headers.get("if-modified-since");
-    if (
-      (ifNoneMatch && ifNoneMatch === simpleEtag) ||
-      (ifNoneMatch === null && ifModifiedSince &&
-        fileInfo.mtime.getTime() < (new Date(ifModifiedSince).getTime() + 1000))
-    ) {
-      const status = Status.NotModified;
-      const statusText = STATUS_TEXT.get(status);
-
-      return new Response(null, {
-        status,
-        statusText,
-        headers,
-      });
-    }
-  }
-
-  // Get and parse the "range" header
-  const range = req.headers.get("range") as string;
-  const rangeRe = /bytes=(\d+)-(\d+)?/;
-  const parsed = rangeRe.exec(range);
-
-  // Use the parsed value if available, fallback to the start and end of the entire file
-  const start = parsed && parsed[1] ? +parsed[1] : 0;
-  const end = parsed && parsed[2] ? +parsed[2] : Math.max(0, fileInfo.size - 1);
-
-  let status = Status.OK;
-
-  // If there is a range, set the status to 206, and set the "Content-range" header.
-  if (range && parsed) {
-    status = Status.PartialContent;
-    headers.set("content-range", `bytes ${start}-${end}/${fileInfo.size}`);
-  }
-
-  // Return 416 if `start` isn't less than or equal to `end`, or `start` or `end` are greater than the file's size
-  const maxRange =
-    (typeof fileInfo.size === "number" ? Math.max(0, fileInfo.size - 1) : 0);
-
-  if (
-    range && !parsed ||
-    (typeof start !== "number" || start > end || start > maxRange ||
-      end > maxRange)
-  ) {
-    const status = Status.RequestedRangeNotSatisfiable;
-    const statusText = STATUS_TEXT.get(status);
-
-    return new Response(statusText, {
-      status,
-      statusText,
-      headers,
-    });
-  }
+  const status = Status.OK;
 
   let body = null;
 
   try {
     // Read the selected range of the file
-    const bytes = await readRange(file, { start, end });
+    const bytes = await Deno.readFile(filePath);
 
     // Set content length and response body
     headers.set("content-length", bytes.length.toString());
@@ -264,8 +171,6 @@ export async function serveFile(
     // Fallback on URIError (400 Bad Request) if unable to read range
     throw URIError(String(e));
   }
-
-  file.close();
 
   const statusText = STATUS_TEXT.get(status);
 
