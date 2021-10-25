@@ -1,5 +1,5 @@
 import { errorResponse } from "./error.ts";
-import { serveFile } from "../deps.ts";
+import { serveFile, log } from "../deps.ts";
 
 export async function staticResponse(request: Request) {
   const { pathname } = new URL(request.url);
@@ -7,7 +7,7 @@ export async function staticResponse(request: Request) {
   .catch((error: Error) => {
     if (error.name === "NotFound") return errorResponse(404, "Not Found");
     else {
-      console.error(`Error returning file "${pathname}""`, error.name);
+      log.error(`Error returning file "${pathname}"`, error.name, error.message);
       return errorResponse(500, "Unknown Error");
     }
   });
