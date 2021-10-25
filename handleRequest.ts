@@ -1,4 +1,4 @@
-import { log, ConnInfo } from "./deps.ts";
+import { log, ConnInfo, serveFile } from "./deps.ts";
 import { errorResponse } from "./response/error.ts";
 import { defaultResponse } from "./response/default.ts";
 import { staticResponse } from "./response/static.ts";
@@ -14,6 +14,9 @@ export async function handleRequest(request: Request, connInfo:ConnInfo): Promis
   }
   if (pathname === "/parcho") {
     return defaultResponse();
+  }
+  if (pathname === "/favicon.ico") {
+    return await staticResponse(request, {prefix:"/static"});
   }
   if (pathname.startsWith("/static")){
     return await staticResponse(request);
