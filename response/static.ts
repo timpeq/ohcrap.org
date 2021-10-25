@@ -7,7 +7,7 @@ export async function staticResponse(request: Request) {
   .catch((error: Error) => {
     if (error.name === "NotFound") return errorResponse(404, "Not Found");
     else {
-      log.error(`Error returning file "${pathname}"`, error.name, error.message);
+      log.error(`Error returning file "${pathname}" ${error.name} -  ${error.message}`);
       return errorResponse(500, "Unknown Error");
     }
   });
